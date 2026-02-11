@@ -7,7 +7,7 @@ A simple movie recommendation app made with MERN and Gemini AI.
 - Easy to search by genre or specific descriptions.
 
 ![Project Screenshot](./frontend/image.png)
-![App Interface](image-1.png)
+![App Interface](image.png)
 
 ### How to use:
 1. **Backend**: Go to `backend` folder, run `npm i` then `npm run dev`.
