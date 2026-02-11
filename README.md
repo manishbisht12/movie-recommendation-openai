@@ -1,8 +1,13 @@
 # CineSuggest AI
 
 A simple movie recommendation app made with MERN and Gemini AI.
+- Find the perfect movie based on your mood.
+- Powered by Google's Gemini AI for smart suggestions.
+- Sleek and responsive UI for a great user experience.
+- Easy to search by genre or specific descriptions.
 
 ![Project Screenshot](./frontend/image.png)
+![App Interface](image-1.png)
 
 ### How to use:
 1. **Backend**: Go to `backend` folder, run `npm i` then `npm run dev`.
@@ -10,3 +15,6 @@ A simple movie recommendation app made with MERN and Gemini AI.
 3. **API Key**: Put your `GEMINI_API_KEY` in the `.env` file inside the backend folder.
 
 Just type your mood or a genre and get recommendations. 🎬
+
+---
+**Developed by Manish Bisht** 🚀
