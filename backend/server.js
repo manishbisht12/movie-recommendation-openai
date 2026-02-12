@@ -13,6 +13,11 @@ app.use(cors());
 // Connect to Database
 connectDB();
 
+// Test Route
+app.get("/", (req, res) => {
+    res.send("🚀 Movie Recommendation API is running...");
+});
+
 // Routes
 app.use("/api/recommendations", recommendationRoutes);
 
