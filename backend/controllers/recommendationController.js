@@ -1,31 +1,30 @@
 import { VertexAI } from '@google-cloud/vertexai';
 import MovieRecommendation from "../models/Recommendation.js";
 
-// 1. Environment variable se JSON ko object mein convert karne ka function
-const getGCPCredentials = () => {
-    try {
-        if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
-            return JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
-        }
-        return null;
-    } catch (error) {
-        console.error("❌ GCP JSON Parse Error:", error.message);
-        return null;
-    }
-};
+// 1. Pehle credentials load karein
+const gcpCredentials = process.env.GCP_SERVICE_ACCOUNT_JSON
+    ? JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON)
+    : null;
 
-// 2. Vertex AI Initialize (Direct Credentials ke saath)
+// 2. VertexAI initialize karein
+// Dhyaan dein: 'googleAuthOptions' ko constructor ke andar hi pass karna hai
 const vertexAI = new VertexAI({
     project: 'gen-lang-client-0809119989',
     location: 'us-central1',
     googleAuthOptions: {
-        credentials: getGCPCredentials() // Ye line sabse zaroori hai
+        credentials: gcpCredentials
     }
 });
 
 export const getRecommendations = async (req, res) => {
     const { userInput } = req.body;
     if (!userInput) return res.status(400).json({ error: "Input required" });
+
+    // Check agar credentials load hue ya nahi
+    if (!gcpCredentials) {
+        console.error("❌ ERROR: GCP_SERVICE_ACCOUNT_JSON is missing in Render Env Variables!");
+        return res.status(500).json({ error: "Server authentication misconfigured" });
+    }
 
     try {
         const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -42,12 +41,13 @@ export const getRecommendations = async (req, res) => {
         const response = await result.response;
         const responseText = response.candidates[0].content.parts[0].text;
 
+        console.log("✅ Vertex AI Response:", responseText);
+
         const recommendedMovies = responseText
             .split(/,|\n/)
             .map(m => m.trim())
             .filter(m => m.length > 0);
 
-        // MongoDB save logic
         const newRec = new MovieRecommendation({ userInput, recommendedMovies });
         await newRec.save();
 
