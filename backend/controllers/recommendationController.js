@@ -1,67 +1,65 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { VertexAI } from '@google-cloud/vertexai';
 import MovieRecommendation from "../models/Recommendation.js";
+
+// Render par Secret File ka path fix hota hai
+const KEY_PATH = '/etc/secrets/google-credentials.json';
+
+// Vertex AI setup (Location force karne se error khatam ho jayega)
+const vertexAI = new VertexAI({
+    project: 'gen-lang-client-0809119989',
+    location: 'us-central1', // US region force kiya hai
+    keyFilename: KEY_PATH
+});
 
 export const getRecommendations = async (req, res) => {
     const { userInput } = req.body;
 
-    // 1. Input Validation
     if (!userInput) {
         return res.status(400).json({ error: "User input is required" });
     }
 
-    // 2. API Key Check
-    if (!process.env.GEMINI_API_KEY) {
-        console.error("❌ ERROR: GEMINI_API_KEY is missing in Environment Variables!");
-        return res.status(500).json({ error: "Server Configuration Error: API Key missing" });
-    }
-
     try {
-        // SDK Initialize
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-        // Use stable gemini-1.5-flash model
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Vertex AI model initialize
+        const model = vertexAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+        });
 
         const prompt = `You are a movie recommendation expert. Based on the user's preference: "${userInput}", suggest 3 to 5 relevant movies. 
-        Provide only the titles of the movies in a comma-separated list. Do not include any introductory text, numbering, or explanations.`;
+        Provide only the titles of the movies in a comma-separated list. No other text.`;
 
-        console.log("📡 Requesting recommendations for:", userInput);
+        const request = {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        };
 
-        // Content generation
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        console.log("📡 Requesting recommendations via Vertex AI for:", userInput);
 
-        console.log("✅ Gemini Response:", responseText);
+        const result = await model.generateContent(request);
+        const response = await result.response;
 
-        // 3. Cleaning logic
+        // Vertex AI ka response candidates array se nikalte hain
+        const responseText = response.candidates[0].content.parts[0].text;
+
+        console.log("✅ Vertex AI Response:", responseText);
+
+        // Cleaning logic
         const cleanedText = responseText.replace(/```/g, '').replace(/csv/g, '').trim();
-
         const recommendedMovies = cleanedText
             .split(/,|\n/)
             .map(movie => movie.replace(/^\d+\.\s*/, '').trim())
             .filter(movie => movie.length > 0)
             .slice(0, 5);
 
-        // 4. Save to MongoDB
+        // MongoDB mein save karein
         const newRecommendation = new MovieRecommendation({
             userInput,
             recommendedMovies,
         });
         await newRecommendation.save();
 
-        // 5. Success response
         res.json({ recommendedMovies });
 
     } catch (error) {
-        console.error("❌ Error generating recommendations:", error);
-
-        // Detailed error message for location issues
-        if (error.message.includes("location is not supported")) {
-            return res.status(403).json({
-                error: "Google Gemini API is not available in your server's current location (Region)."
-            });
-        }
-
+        console.error("❌ Vertex AI Error:", error);
         res.status(500).json({
             error: "Failed to generate recommendations",
             details: error.message
