@@ -8,9 +8,15 @@ export const getRecommendations = async (req, res) => {
         return res.status(400).json({ error: "User input is required" });
     }
 
+    // 1. Render Dashboard mein GEMINI_API_KEY zaroor check karein!
+    if (!process.env.GEMINI_API_KEY) {
+        console.error("❌ ERROR: GEMINI_API_KEY is missing!");
+        return res.status(500).json({ error: "Server Configuration Error: API Key is missing" });
+    }
+
     try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" }, { apiVersion: "v1" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `You are a movie recommendation expert. Based on the user's preference: "${userInput}", suggest 3 to 5 relevant movies. 
     Provide only the titles of the movies in a comma-separated list. No other text.`;
