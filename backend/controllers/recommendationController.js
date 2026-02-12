@@ -1,36 +1,36 @@
 import { VertexAI } from '@google-cloud/vertexai';
 import MovieRecommendation from "../models/Recommendation.js";
 
-// JSON string ko object mein convert karne ka function
-const getCredentials = () => {
+// 1. Environment variable se JSON ko object mein convert karne ka function
+const getGCPCredentials = () => {
     try {
-        if (!process.env.GCP_SERVICE_ACCOUNT_JSON) {
-            throw new Error("GCP_SERVICE_ACCOUNT_JSON is missing in Env Variables");
+        if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
+            return JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
         }
-        return JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
-    } catch (e) {
-        console.error("❌ Error parsing GCP Credentials:", e.message);
+        return null;
+    } catch (error) {
+        console.error("❌ GCP JSON Parse Error:", error.message);
         return null;
     }
 };
 
-// Vertex AI initialize karein (Directly passing credentials object)
+// 2. Vertex AI Initialize (Direct Credentials ke saath)
 const vertexAI = new VertexAI({
     project: 'gen-lang-client-0809119989',
     location: 'us-central1',
     googleAuthOptions: {
-        credentials: getCredentials()
+        credentials: getGCPCredentials() // Ye line sabse zaroori hai
     }
 });
 
 export const getRecommendations = async (req, res) => {
     const { userInput } = req.body;
-    if (!userInput) return res.status(400).json({ error: "User input is required" });
+    if (!userInput) return res.status(400).json({ error: "Input required" });
 
     try {
         const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-        const prompt = `You are a movie recommendation expert. Based on the user's preference: "${userInput}", suggest 3 to 5 relevant movies. Provide only titles in a comma-separated list.`;
+        const prompt = `Suggest 3-5 movies for: "${userInput}". Provide only titles, comma-separated.`;
 
         const request = {
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -40,24 +40,21 @@ export const getRecommendations = async (req, res) => {
 
         const result = await model.generateContent(request);
         const response = await result.response;
-
-        // Vertex AI ka response candidates array se nikalte hain
         const responseText = response.candidates[0].content.parts[0].text;
 
         const recommendedMovies = responseText
             .split(/,|\n/)
             .map(m => m.trim())
-            .filter(m => m.length > 0)
-            .slice(0, 5);
+            .filter(m => m.length > 0);
 
-        // Save to Database
-        const newRecommendation = new MovieRecommendation({ userInput, recommendedMovies });
-        await newRecommendation.save();
+        // MongoDB save logic
+        const newRec = new MovieRecommendation({ userInput, recommendedMovies });
+        await newRec.save();
 
         res.json({ recommendedMovies });
 
     } catch (error) {
         console.error("❌ Vertex AI Error:", error);
-        res.status(500).json({ error: "Failed to generate recommendations", details: error.message });
+        res.status(500).json({ error: "Generation failed", details: error.message });
     }
 };
